@@ -22,9 +22,12 @@ cd slackfastapi/terraform/digitalocean
 terraform init
 terraform apply -var-file=terraform.tfvars -auto-approve
 terraform output -json > ../../ansible/terraform_outputs.json
-# then follow instructions (check for root password in e-mail, ssh into a vm, ufw allow 5050/tcp
+```
+### then follow instructions (check for root password in e-mail, ssh into a vm, ufw allow 5050/tcp
 ufw allow OpenSSH, edit gitlab.rb, run gitlab-ctl reconfigure, etc.)
-https://www.digitalocean.com/community/tutorials/how-to-use-the-gitlab-enterprise-edition-1-click-install-on-digitalocean
+*** https://www.digitalocean.com/community/tutorials/how-to-use-the-gitlab-enterprise-edition-1-click-install-on-digitalocean ***
+
+```
 cd ../../ansible
 ansible-playbook fetch-creds-do.yml
 ```
@@ -62,7 +65,7 @@ AWS_SECRET_ACCESS_KEY=""
 ### Under project -> Settings -> CICD ->  Runners -> create new project runner:
 ```
 # it will produce command like this:
-gitlab-runner register  --url https://solarwinds123.ru  --token glrt-Zy5TDfqo3MWGGFYyp3d4
+gitlab-runner register  --url https://solarwinds123.ru  --token glrt-token
 
 # modify gitlab-runner-values.yml with the url and token from above, then run:
 cd ../ansible
@@ -78,7 +81,8 @@ kubectl auth can-i create deployments --as=system:serviceaccount:gitlab:default 
 ```
 # under project -> Operate -> Kubernetes Clusters -> Connect a Cluster -> start typing the name of the agent you want to create -> then click on create agent, when it appears as an option -> Register
 
-export GITLAB_AGENT_TOKEN=glagent-wCNFLfqhb8tUmxCKmNZGsBsPJmAYaNsD33rCbsPy7y4hyHDbwQ
+export GITLAB_AGENT_TOKEN=glagent-token
+
 # then under ansible dir run:
 ansible-playbook deploy-agent.yml
 ```
@@ -92,23 +96,25 @@ ansible-playbook deploy-agent.yml
 kubectl create secret docker-registry registrykey \
   --docker-server=solarwinds123.ru:5050 \
   --docker-username=container_registry \
-  --docker-password=glpat-Bb5yLxk8txy5ArkG-jZG \
+  --docker-password=glpat-token \
   -n slack-fastapi
 
 # SET protected variables:
 CI_REGISTRY=solarwinds123.ru:5050
 CI_REGISTRY_USER=container_registry
-CI_REGISTRY_PASSWORD=glpat-Bb5yLxk8txy5ArkG-jZG
+CI_REGISTRY_PASSWORD=glpat-token
 ```
 ### then push slackfastapi-master to gitlab
 ```
 cd ../slackfastapi-master
 git init --initial-branch=main # if needed
 git remote set-url origin https://solarwinds123.ru/slackfastapi/slackfastapi.git
+
 # check
 git remote -v
 eval "$(ssh-agent -s)"
 ssh-add ~/.ssh/tumblebuns
+
 # change remote url to use ssh:
 git remote set-url origin git@solarwinds123.ru:slackfastapi/slackfastapi.git
 git push -u origin main
@@ -133,7 +139,7 @@ SLACK_FASTAPI_DB_NAME="slack_fastapi"     # Same as POSTGRES_DB in docker-compos
 ### before deploying monitoring to enable alerts create apikey with sendgrid.com and create a secret:
 ```
 kubectl create namespace prometheus
-kubectl create secret generic smtp-secret --from-literal=smtp_password='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' -n prometheus
+kubectl create secret generic smtp-secret --from-literal=smtp_password='send_grid_smpt_token' -n prometheus
 ```
 ### deploy monitoring
 
