@@ -1,0 +1,24 @@
+---
+- hosts: localhost
+  tasks:
+    - name: Include Terraform outputs
+      include_vars:
+        file: terraform_outputs.json
+        name: tf_outputs
+
+    - name: Set Terraform outputs as facts
+      set_fact:
+        cluster_id: "{{ tf_outputs['cluster_id']['value'] }}"
+        # external_ip: "{{ tf_outputs['gitlab_ip']['value'] }}"
+
+    - name: Delete config
+      file:
+        path: /home/groot/.kube/config
+        state: absent
+
+    # digital ocean
+    - name: Fetch Cluster Credentials
+      command: doctl kubernetes cluster kubeconfig save {{ cluster_id }}
+      environment:
+        KUBECONFIG: "/home/groot/.kube/config"
+

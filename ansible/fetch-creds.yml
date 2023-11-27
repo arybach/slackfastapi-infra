@@ -1,0 +1,23 @@
+---
+- hosts: localhost
+  tasks:
+    - name: Include Terraform outputs
+      include_vars:
+        file: terraform_outputs.json
+        name: tf_outputs
+
+    - name: Set Terraform outputs as facts
+      set_fact:
+        cluster_ca_certificate: "{{ tf_outputs['cluster_ca_certificate']['value'] | replace('-----BEGIN CERTIFICATE-----', '') | replace('-----END CERTIFICATE-----', '') | replace('\n', '') }}"
+        cluster_id: "{{ tf_outputs['cluster_id']['value'] }}"
+        external_v4_endpoint: "{{ tf_outputs['external_v4_endpoint']['value'] }}"
+        internal_v4_endpoint: "{{ tf_outputs['internal_v4_endpoint']['value'] }}"
+        external_ip: "{{ tf_outputs['external_ip']['value'] }}"
+        service_account_id: "{{ tf_outputs['service_account_id']['value'] }}"
+        subnet_id: "{{ tf_outputs['subnet_id']['value'] }}"
+
+    - name: Fetch Kubernetes credentials using yc CLI
+      command:
+        cmd: "yc managed-kubernetes cluster get-credentials {{ cluster_id }} --external --force"
+      register: yc_output
+

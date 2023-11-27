@@ -1,0 +1,11 @@
+
+resource "digitalocean_droplet" "gitlab" {
+  image  = "gitlab-gitlabenterprise-20-04"
+  name   = "gitlab"
+  region = var.region
+  size   = "s-4vcpu-8gb"
+}
+
+output "gitlab_ip" {
+  value = digitalocean_droplet.gitlab.ipv4_address
+}

@@ -1,0 +1,72 @@
+- name: Apply Helm
+  hosts: localhost
+  gather_facts: yes
+  vars:
+    ns: traefik
+    ingress_name: traefik-ingress
+    kubeconfig_path: /home/groot/.kube/config
+    traefik_version: v25.0.0 # docker version 2.10
+    cert_manager_namespace: cert-manager
+    cert_manager_version: v1.8.0
+
+  tasks:
+    - name: Create traefik namespace
+      command: kubectl create namespace {{ ns }}
+      ignore_errors: yes  
+
+    - name: Create cert-manager namespace
+      command: kubectl create namespace {{ cert_manager_namespace }}
+      ignore_errors: yes  
+
+    - name: Add Traefik Helm Repository
+      command: helm repo add traefik https://helm.traefik.io/traefik
+      ignore_errors: yes
+
+    # Helm doesn't update CRDs automatically
+    - name: Update CRDs
+      command: kubectl apply -f https://raw.githubusercontent.com/traefik/traefik/v2.10/docs/content/reference/dynamic-configuration/kubernetes-crd-definition-v1.yml
+      retries: 3
+      delay: 10
+
+    # Add cert-manager repository
+    - name: Add cert-manager Helm Repository
+      command: helm repo add jetstack https://charts.jetstack.io
+      ignore_errors: yes
+
+    # Update Helm Repositories
+    - name: Update Helm Repositories
+      command: helm repo update
+      ignore_errors: yes
+
+    # Install cert-manager Helm chart
+    - name: Install cert-manager
+      command: helm upgrade --install cert-manager jetstack/cert-manager \
+        --namespace {{ cert_manager_namespace }} \
+        --kubeconfig {{ kubeconfig_path }} \
+        --version {{ cert_manager_version }} \
+        --set installCRDs=true
+      ignore_errors: yes
+
+    # Apply cert-manager ClusterIssuer or Issuer
+    - name: Apply cert-manager Extras
+      command: kubectl apply -f traefik-certs.yml
+      ignore_errors: yes
+
+    - name: Add Gateway Rbac Role for Traefik
+      command: kubectl apply -f traefik-rbac-role.yml
+      retries: 3
+      delay: 10
+
+    # only additional options are set. default traefik values.yml is available here:
+    # https://raw.githubusercontent.com/traefik/traefik/v2.10/docs/content/reference/dynamic-configuration/kubernetes-crd-rbac.yml
+    - name: Install Traefik Helm Chart
+      command: helm upgrade --install {{ ingress_name }} traefik/traefik \
+        --namespace {{ ns }} \
+        --kubeconfig {{ kubeconfig_path }} \
+        --values=traefik-values.yml \
+        --version {{ traefik_version }}
+      retries: 3
+      delay: 10
+
+    - name: Apply monitoring
+      command: kubectl apply -f ../slackfastapi-master/deploy/monitoring.yml

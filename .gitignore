@@ -1,0 +1,15 @@
+*.hcl
+.terraform
+*.tfstate.lock.info
+terraform.tfvars
+*.tfstate
+*.tfstate.backup
+slack.pem
+terraform-outputs.json
+ansible/argo-cd
+*.tfvars
+.env
+slackfastapi-master.tar.gz
+slackfastapi-master
+config.json
+traefik-certs.yml

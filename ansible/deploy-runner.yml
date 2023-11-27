@@ -1,0 +1,26 @@
+- name: Deploy GitLab Runner
+  hosts: localhost
+  gather_facts: yes
+  vars:
+    ns: gitlab
+    gitlab_url: "https://solarwinds123.ru"
+    values_file: "gitlab-runner-values.yml"
+
+  tasks:
+
+    - name: Ensure the namespace exists
+      command: kubectl create namespace {{ ns }}
+      ignore_errors: yes  
+
+    - name: Ensure the namespace exists
+      command: kubectl create namespace slack-fastapi
+      ignore_errors: yes  
+
+    - name: Add permissions to Gitlab Runner
+      command: kubectl apply -f gitlab-runner-rbac.yml
+
+    - name: Install GitLab Runner
+      command: >-
+        helm upgrade --install gitlab-runner gitlab/gitlab-runner
+        --namespace {{ ns }}
+        -f {{ values_file }}

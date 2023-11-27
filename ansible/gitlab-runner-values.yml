@@ -1,0 +1,40 @@
+## GitLab Runner Configuration
+gitlabUrl: https://solarwinds123.ru
+runnerRegistrationToken: "..."
+
+## Configure TLS verification (disable in production)
+tls-skip-verify: true
+
+## Runner's Configuration
+runners:
+  namespace: gitlab
+  locked: false
+  name: "gitlab-runner"
+  executor: kubernetes
+  privileged: true
+  tags: "docker-runner, kubernetes-runner, deploy-runner"
+  config: |
+    [[runners]]
+      # Using DinD (Docker-in-Docker) as a service
+      [runners.kubernetes]
+        # Setting privileged mode is required for DinD
+        privileged = true
+        # Using the Docker image suitable for DinD service
+        image = "docker:20.10.16"
+        # Define volumes for DinD service
+        [[runners.kubernetes.volumes.empty_dir]]
+          name = "docker-certs"
+          mount_path = "/certs"
+          medium = "Memory"
+        [[runners.kubernetes.volumes.empty_dir]]
+          name = "docker"
+          mount_path = "/var/run/docker.sock"
+
+## RBAC Configuration
+rbac:
+  create: true
+  serviceAccountName: gitlab-runner
+
+## Custom Certificates
+# Uncomment and set the certsSecretName if using HTTPS with custom certificates
+# certsSecretName: gitlab-runner-cert

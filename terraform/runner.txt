@@ -1,0 +1,27 @@
+resource "yandex_compute_instance" "gitlab-runner-vm" {
+  name        = "gitlab-runner-vm"
+  zone        = var.zone
+  hostname    = "gitlab-runner"
+  platform_id = "standard-v2"
+
+  resources {
+    cores  = 4
+    memory = 8
+  }
+
+  boot_disk {
+    initialize_params {
+      image_id = "fd80bm0rh4rkepi5ksdi" 
+      size     = 50
+    }
+  }
+
+  network_interface {
+    subnet_id = yandex_vpc_subnet.app-subnet.id
+    nat       = true
+  }
+
+  metadata = {
+    ssh-keys = "admin:${file(var.ssh_public_key_file)}\nuser:${file(var.ssh_public_key_file)}"
+  }
+}

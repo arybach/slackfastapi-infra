@@ -1,0 +1,59 @@
+- name: Deploy Kube Monitoring Stack with Additional Dependencies
+  hosts: localhost
+  gather_facts: yes
+  vars:
+    ns: prometheus
+    release_name: "kube-prom-stack"
+    chart_version: "54.2.0"
+    grafana_dashboards_path: "/media/groot/projects/slackfastapi/ansible/dashboards/"
+    custom_values_path: "/media/groot/projects/slackfastapi/ansible/prometheus-values.yml"
+  tasks:
+    # to clean before re-applying:
+    # helm delete kube-prom-stack --namespace prometheus
+    # helm delete loki --namespace prometheus
+
+    # - name: Ensure the namespace exists
+    #   command: kubectl create namespace {{ ns }}
+    #   ignore_errors: yes  
+
+    - name: Add Helm Repos
+      command: "{{ item.cmd }}"
+      loop:
+        - { cmd: "helm repo add prometheus-community https://prometheus-community.github.io/helm-charts" }
+        - { cmd: "helm repo add grafana https://grafana.github.io/helm-charts" }
+      ignore_errors: yes
+
+    - name: Update Helm Repos
+      command: helm repo update
+      ignore_errors: yes
+
+    - name: Install Kube-Prometheus-Stack with Configured Grafana
+      command: >
+        helm install {{ release_name }} prometheus-community/kube-prometheus-stack
+        --version {{ chart_version }}
+        --namespace {{ ns }}
+        --set grafana.sidecar.dashboards.enabled=true
+        --set grafana.sidecar.dashboards.label=grafana_dashboard
+        --set grafana.plugins[0]=grafana-singlestat-panel
+        --set grafana.plugins[1]=grafana-graph-panel
+        --set grafana.plugins[2]=grafana-bargauge-panel
+        --set grafana.plugins[3]=grafana-logs-panel
+        --set grafana.plugins[4]=grafana-stat-panel
+        --set grafana.plugins[5]=grafana-timeseries-panel
+        -f {{ custom_values_path }}
+      ignore_errors: yes
+
+    - name: Install Loki for Logging
+      command: >
+        helm install loki grafana/loki
+        --namespace {{ ns }}
+      ignore_errors: yes
+
+    - name: Create ConfigMaps for Grafana Dashboards
+      shell: kubectl create configmap {{ item.key }} --from-file={{ item.value }} --namespace {{ ns }} --dry-run=client -o yaml | kubectl apply -f -
+      with_dict:
+        fastapi-dashboard: "{{ grafana_dashboards_path }}/fastapi.json"
+        kubernetes-dashboard: "{{ grafana_dashboards_path }}/kubernetes.json"
+        postgres-dashboard: "{{ grafana_dashboards_path }}/postgres.json"
+        rabbitmq-dashboard: "{{ grafana_dashboards_path }}/rabbitmq.json"
+      ignore_errors: yes

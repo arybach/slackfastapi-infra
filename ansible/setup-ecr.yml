@@ -1,0 +1,31 @@
+# run this to create yandex container registry
+---
+- hosts: localhost
+  gather_facts: yes
+  tasks:
+  
+    - name: Create Yandex Container Registry
+      command: yc container registry create --name slackfast
+      register: registry_output
+      changed_when: "'done' in registry_output.stdout"
+      no_log: true  # To prevent sensitive information from being logged
+
+    - set_fact:
+        registry_id: "{{ registry_output.stdout | regex_search('(id: )(\\S+)', '\\2') }}"
+
+    - name: Configure Docker for Yandex Credential Helper
+      command: yc container registry configure-docker
+
+    # to test:
+    # - name: Pull Ubuntu Image from Docker Hub
+    #   command: docker pull ubuntu
+
+    # - name: Tag the Docker Image for Yandex Registry
+    #   command: "docker tag ubuntu cr.yandex/{{ registry_id }}/ubuntu:hello"
+
+    # - name: Push Docker Image to Yandex Container Registry
+    #   command: "docker push cr.yandex/{{ registry_id }}/ubuntu:hello"
+
+    # - name: Run Docker Image from Yandex Registry
+    #   command: "docker run cr.yandex/{{ registry_id }}/ubuntu:hello"
+    #   ignore_errors: true  # This is just to ensure that playbook doesn't fail if the container exits immediately

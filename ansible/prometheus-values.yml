@@ -1,0 +1,95 @@
+# Custom scrape configuration
+scrape_configs:
+  - job_name: kubernetes-nodes-cadvisor
+    scrape_interval: 20s
+    scrape_timeout: 20s
+    scheme: https  # remove if you want to scrape metrics on insecure port
+    tls_config:
+      ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+    bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+    kubernetes_sd_configs:
+      - role: node
+    relabel_configs:
+      - action: labelmap
+        regex: __meta_kubernetes_node_label_(.+)
+      # Only for Kubernetes ^1.7.3.
+      # See: https://github.com/prometheus/prometheus/issues/2916
+      - target_label: __address__
+        replacement: kubernetes.default.svc:443
+      - source_labels: [__meta_kubernetes_node_name]
+        regex: (.+)
+        target_label: __metrics_path__
+        replacement: /api/v1/nodes/${1}/proxy/metrics/cadvisor
+    metric_relabel_configs:
+      - action: replace
+        source_labels: [id]
+        regex: '^/machine\.slice/machine-rkt\\x2d([^\\]+)\\.+/([^/]+)\.service$'
+        target_label: rkt_container_name
+        replacement: '${2}-${1}'
+      - action: replace
+        source_labels: [id]
+        regex: '^/system\.slice/(.+)\.service$'
+        target_label: systemd_service_name
+        replacement: '${1}'
+
+# Alertmanager configuration
+alertmanager:
+  alertmanagerSpec:
+    config:
+      global:
+        smtp_smarthost: 'smtp.sendgrid.net:587'  # Replace with your SMTP host
+        smtp_from: 'mats.tumblebuns@gmail.com'      # Replace with your email
+        smtp_auth_username: 'apikey'      # SMTP username
+        smtp_auth_password: '{{ .Values.smtp_secret | b64enc }}'     # SMTP password
+      route:
+        group_by: ['alertname']
+        receiver: 'email'
+      receivers:
+        - name: 'email'
+          email_configs:
+            - to: 'mats.tumblebuns@gmail.com'
+
+# Custom alerting rules
+additionalPrometheusRules:
+  - name: node-alerts
+    groups:
+      - name: node.rules
+        rules:
+          - alert: HighMemoryUsage
+            expr: node_memory_Active_bytes / node_memory_MemTotal_bytes > 0.8
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: High Memory Usage on Node
+              description: "Node memory usage is over 80% for more than 5 minutes."
+
+          - alert: HighCpuUsage
+            expr: 100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: High CPU Usage on Node
+              description: "CPU usage is over 90% for more than 5 minutes."
+
+          - alert: HighStorageUsage
+            expr: (node_filesystem_avail_bytes{mountpoint="/"}/node_filesystem_size_bytes{mountpoint="/"})*100 < 20
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: High Storage Usage
+              description: "Less than 20% disk space available on the root filesystem for more than 5 minutes."
+
+# Prometheus storage settings (example)
+prometheus:
+  prometheusSpec:
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: standard
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 120Gi

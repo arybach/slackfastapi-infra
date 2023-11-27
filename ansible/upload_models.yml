@@ -1,0 +1,26 @@
+---
+- name: Upload models to Yandex Cloud Bucket
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Ensure pip is installed
+      ansible.builtin.package:
+        name: python3-pip
+        state: present
+        use: apt
+      become: yes
+
+    - name: Install required Python libraries with pip
+      ansible.builtin.pip:
+        name:
+          - boto
+          - boto3
+        state: present
+      become: yes
+
+    - name: Upload trained models to Yandex Cloud bucket using custom Python script
+      command:
+        cmd: "python3 upload_models.py"
+      environment:
+        YC_ACCESS_KEY_ID: "{{ lookup('env','YC_ACCESS_KEY_ID') }}"
+        YC_SECRET_ACCESS_KEY: "{{ lookup('env','YC_SECRET_ACCESS_KEY') }}"

@@ -1,0 +1,56 @@
+---
+- name: YC Bucket and Keys Setup
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Check if Yandex Service Account exists
+      command: >
+        yc iam service-account get --name bucketsa
+      register: sa_check
+      changed_when: false
+      failed_when: false
+      ignore_errors: true
+
+    - name: Create Yandex Service Account if not exists
+      command: >
+        yc iam service-account create --name bucketsa
+      when: sa_check.rc != 0
+      register: bucketsa
+
+    - name: Get Service Account ID
+      set_fact:
+        service_account_id: "{{ (bucketsa.stdout | default(sa_check.stdout)) | regex_search('id: (.*)', '\\1') | first }}"
+
+    - name: Assign storage.editor role to the bucketsa service account for object storage
+      command: >
+        yc resource-manager folder add-access-binding --id b1gjev1g87fgira75vkt --role storage.admin --service-account-id {{ service_account_id }}
+
+    - name: Generate API Keys for bucketsa
+      command: >
+        yc iam access-key create --service-account-id {{ service_account_id }}
+      register: api_key_result
+
+    - name: Display Access Key and Secret Key
+      debug:
+        var: api_key_result.stdout_lines
+
+    - name: Check if Yandex Storage Bucket exists
+      command: >
+        yc storage bucket get --name slackfastbucket
+      register: bucket_check
+      changed_when: false
+      failed_when: false
+      ignore_errors: true
+
+    - name: Create Yandex Storage Bucket if not exists
+      command: >
+        yc storage bucket create --name slackfastbucket
+      when: bucket_check.rc != 0
+      register: bucket_result
+
+    - name: Display important information if missed
+      debug:
+        msg:
+          - "Please take note of the above access key and secret, they won't be retrievable again."
+          - "You can now configure your application to use the bucket with the provided credentials."
+      when: bucketsa.changed or bucket_result.changed

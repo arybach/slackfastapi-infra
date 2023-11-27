@@ -1,0 +1,29 @@
+---
+- name: Install and Configure GitLab Agent with Helm
+  hosts: localhost
+  gather_facts: yes
+  vars:
+    gitlab_agent_token: "{{ lookup('env', 'GITLAB_AGENT_TOKEN') }}"
+    gitlab_kas_address: "wss://solarwinds123.ru/-/kubernetes-agent/"  # KAS address
+    gitlab_agent_image_tag: "v16.6.0"  # Image tag as specified
+    gitlab_agent_name: "slackfastapi"  # Namespace as specified
+
+  tasks:
+    - name: Add GitLab Helm repository
+      command: helm repo add gitlab https://charts.gitlab.io
+
+    - name: Update Helm repository
+      command: helm repo update
+
+    - name: Install GitLab Agent using Helm
+      command: |
+        helm upgrade --install {{ gitlab_agent_name }} gitlab/gitlab-agent \
+          --namespace gitlab-agent-{{ gitlab_agent_name }} \
+          --create-namespace \
+          --set image.tag={{ gitlab_agent_image_tag }} \
+          --set config.token={{ gitlab_agent_token }} \
+          --set config.kasAddress={{ gitlab_kas_address }}
+      register: helm_install
+
+    - debug:
+        var: helm_install.stdout
