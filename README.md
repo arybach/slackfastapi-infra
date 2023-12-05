@@ -235,3 +235,9 @@ kubectl port-forward svc/kube-prom-stack-kube-prome-prometheus -n prometheus 909
 
 ![Alt text](jpegs/image-15.png)
 
+### to clean up
+```
+delete managed gitlab instance via UI
+cd ../terraform
+terraform destroy -var-file=terraform.tfvars -auto-approve
+```
