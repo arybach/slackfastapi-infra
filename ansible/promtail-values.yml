@@ -1,0 +1,21 @@
+config:
+  lokiAddress: http://loki-gateway.prometheus:80
+  scrape_configs:
+    - job_name: system
+      tls_config:
+        insecure_skip_verify: true
+      static_configs:
+        - targets:
+            - localhost
+          labels:
+            job: varlogs
+            __path__: /var/log/*log
+  relabel_configs:
+    - source_labels: [__path__]
+      target_label: filename
+      regex: '.*/(.*).log'
+clients:
+  - url: http://loki-gateway.prometheus:80/loki/api/v1/push
+    # when authentication is disabled (in loki-values.yml, these are not needed)
+    # tenant_id: "slackfastapi"
+    # org_id: "slackfastapi"

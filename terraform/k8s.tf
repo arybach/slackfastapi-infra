@@ -29,9 +29,9 @@ module "kubernetes" {
 
   node_groups = {
     "default" = {
-      cores         = 4
+      cores         = 8
       core_fraction = 100
-      memory        = 8
+      memory        = 16
       fixed_scale   = {
         size = 3
       }

@@ -43,7 +43,7 @@ variable "k8s_cidr_block" {
 
 # variable "domains" {
 #   description = "K8s domains to generate certs for"
-#   default = ["redevops.ru", "*.redevops.ru"]
+#   default = ["redevops.io", "*.redevops.io"]
 # }
 
 # variable "dns_zone" {

@@ -1,0 +1,25 @@
+## Configure additional grafana datasources (passed through tpl)
+## ref: http://docs.grafana.org/administration/provisioning/#datasources
+
+additionalDataSources:
+  - name: Loki
+    type: loki
+    url: http://loki-gateway.prometheus:80
+    access: proxy
+    orgId: 1
+    jsonData:
+      maxLines: 1000
+    version: 1
+    tls_config:
+      insecure_skip_verify: true
+
+  - name: Prometheus
+    type: prometheus
+    url: http://kube-prom-stack-kube-prome-prometheus.prometheus:9090
+    access: proxy
+    orgId: 1
+    jsonData:
+      timeInterval: "15s"
+    version: 1
+    tls_config:
+      insecure_skip_verify: true

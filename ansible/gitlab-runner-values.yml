@@ -1,7 +1,9 @@
-## GitLab Runner Configuration
-gitlabUrl: https://solarwinds123.ru
-runnerRegistrationToken: "..."
-
+## GitLab Runner Configuration for DO
+# gitlabUrl: https://solarwinds123.ru
+## GitLab Runner Configuration for YC
+gitlabUrl: https://redevops.gitlab.yandexcloud.net
+# runnerRegistrationToken: "glrt-token"
+  
 ## Configure TLS verification (disable in production)
 tls-skip-verify: true
 

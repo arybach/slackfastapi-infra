@@ -73,7 +73,17 @@ resource "yandex_resourcemanager_folder_iam_member" "iam-alb-admin" {
   role      = "alb.admin"
   member    = "serviceAccount:${yandex_iam_service_account.k8s-sa.id}"
 }
-# compute.viewer is also needed, but k8s.admin includes it
+
+resource "yandex_iam_service_account_key" "k8s_sa_key" {
+  service_account_id = yandex_iam_service_account.k8s-sa.id
+  description        = "Key for k8s service account"
+  format             = "PEM_FILE"
+}
+
+resource "local_file" "k8s_sa_key_file" {
+  content  = yandex_iam_service_account_key.k8s_sa_key.private_key
+  filename = "/home/groot/.ssh/k8s-sa-key.pem"
+}
 
 # Folder-level roles:
 # admin

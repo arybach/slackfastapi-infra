@@ -1,5 +1,5 @@
-resource "yandex_compute_instance" "gitlab-runner-vm" {
-  name        = "gitlab-runner-vm"
+resource "yandex_compute_instance" "ec2" {
+  name        = "ec2"
   zone        = var.zone
   hostname    = "gitlab-runner"
   platform_id = "standard-v2"

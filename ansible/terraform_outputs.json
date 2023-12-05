@@ -1,7 +1,42 @@
 {
+  "cluster_ca_certificate": {
+    "sensitive": false,
+    "type": "string",
+    "value": "-----BEGIN CERTIFICATE-----\nMIIC5zCCAc+gAwIBAgIBADANBgkqhkiG9w0BAQsFADAVMRMwEQYDVQQDEwprdWJl\ncm5ldGVzMB4XDTIzMTIwNTA2MDIyMFoXDTMzMTIwMjA2MDIyMFowFTETMBEGA1UE\nAxMKa3ViZXJuZXRlczCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBANDq\ntwSkhJuqGHLw3cuI5C50Yn3dkynfJoFGwfr3gcmen7yNQ2+Yk3InF2z07gC3medI\nVr/00emAJNHjEuTMz/dgppU7XgL2p7lt45NbJmoR/GaCFWzhgd8T6Van1pw7H4RJ\nJ7qkBU+bsEuvHbPtgUA24jdxDSLH2abY3FMfhECtSSHmtSelncoAh8af4WirQM3S\npdPjXzqQ+wD58IjW+RlGvFk/Tse8YKh4PSPAWYHoNgQqNMxlSxZmWH3NKKJF+S9e\nTyW5M3XaP3Qy6Ivn0ijdMLSvm1sJIlF80BUyqggBVeQRxc2POrspCPcFpjrapDdw\nzPtQe3a03CXBk6BhUAkCAwEAAaNCMEAwDgYDVR0PAQH/BAQDAgKkMA8GA1UdEwEB\n/wQFMAMBAf8wHQYDVR0OBBYEFKq/CV9XlaKwO/zkOHTazsgHGdaYMA0GCSqGSIb3\nDQEBCwUAA4IBAQArf5KU2kbCsrHaSzfCpyf3Tejs7BIfw/JqadjQPYCDjqIcmMUD\nc8jLZgWDNjrFHcTXllFq5mu5rqkCyB8RPgBw3D0IWn7j9r4nc6Csb/ALKoZGSjOY\nN/WHELBsN621pbQ1H6lxLo0DEbQi4naw2IDSlDRLxoZDOzcg9Vl1gkv3C3hIvVnp\nwCsMqogJmDjjKHIsLaUJNLwWfSyhHV03a0t2Ohyv83qLX8GwS1ENOeWbCb4OWtla\nTC8KxDMyk7mmmDHBvkQWe2bY69eRqYDrSr8NqRWTpEnq7P1LSgt/3gWm40KFJlu3\n8KN3Vxat7L6cpDzGqN7LBTEnAaA2GT6lf81s\n-----END CERTIFICATE-----\n"
+  },
   "cluster_id": {
     "sensitive": false,
     "type": "string",
-    "value": "f44240c1-04dc-4854-8f2c-aa75071d4dde"
+    "value": "catd97rnp83fdq6eb54h"
+  },
+  "external_ip": {
+    "sensitive": false,
+    "type": "string",
+    "value": "62.84.126.48"
+  },
+  "external_v4_endpoint": {
+    "sensitive": false,
+    "type": "string",
+    "value": "https://158.160.34.83"
+  },
+  "internal_v4_endpoint": {
+    "sensitive": false,
+    "type": "string",
+    "value": "https://10.1.0.17"
+  },
+  "node_service_account_id": {
+    "sensitive": false,
+    "type": "string",
+    "value": "aje4deqgi03hqoi1c750"
+  },
+  "service_account_id": {
+    "sensitive": false,
+    "type": "string",
+    "value": "ajebhmhhgimb1vbjj9e8"
+  },
+  "subnet_id": {
+    "sensitive": false,
+    "type": "string",
+    "value": "e9b14j81bget132j315a"
   }
 }

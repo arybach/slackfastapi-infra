@@ -4,7 +4,10 @@
   gather_facts: yes
   vars:
     gitlab_agent_token: "{{ lookup('env', 'GITLAB_AGENT_TOKEN') }}"
-    gitlab_kas_address: "wss://solarwinds123.ru/-/kubernetes-agent/"  # KAS address
+    # for DO
+    # gitlab_kas_address: "wss://solarwinds123.ru/-/kubernetes-agent/"  # KAS address
+    # for YC
+    gitlab_kas_address: "wss://redevops.gitlab.yandexcloud.net/-/kubernetes-agent/"  # KAS address
     gitlab_agent_image_tag: "v16.6.0"  # Image tag as specified
     gitlab_agent_name: "slackfastapi"  # Namespace as specified
 

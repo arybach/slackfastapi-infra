@@ -1,95 +1,310 @@
-# Custom scrape configuration
-scrape_configs:
-  - job_name: kubernetes-nodes-cadvisor
-    scrape_interval: 20s
-    scrape_timeout: 20s
-    scheme: https  # remove if you want to scrape metrics on insecure port
-    tls_config:
-      ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-    bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
-    kubernetes_sd_configs:
-      - role: node
-    relabel_configs:
-      - action: labelmap
-        regex: __meta_kubernetes_node_label_(.+)
-      # Only for Kubernetes ^1.7.3.
-      # See: https://github.com/prometheus/prometheus/issues/2916
-      - target_label: __address__
-        replacement: kubernetes.default.svc:443
-      - source_labels: [__meta_kubernetes_node_name]
-        regex: (.+)
-        target_label: __metrics_path__
-        replacement: /api/v1/nodes/${1}/proxy/metrics/cadvisor
-    metric_relabel_configs:
-      - action: replace
-        source_labels: [id]
-        regex: '^/machine\.slice/machine-rkt\\x2d([^\\]+)\\.+/([^/]+)\.service$'
-        target_label: rkt_container_name
-        replacement: '${2}-${1}'
-      - action: replace
-        source_labels: [id]
-        regex: '^/system\.slice/(.+)\.service$'
-        target_label: systemd_service_name
-        replacement: '${1}'
+prometheus:
+  prometheusSpec:
+    serviceMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorNamespaceSelector: {}
+    podMonitorSelectorNilUsesHelmValues: false
+    podMonitorNamespaceSelector: {}
+    ruleSelectorNilUsesHelmValues: false
+    ruleNamespaceSelector: {}
 
-# Alertmanager configuration
+    additionalScrapeConfigs:
+      - job_name: 'fastapi-metrics'
+        static_configs:
+          - targets: ['slack-fastapi-app-service.slack-fastapi:80']
+        metrics_path: '/metrics'
+        scheme: 'http'
+        scrape_interval: 30s
+        scrape_timeout: 30s
+
+      # Scrape the Kubernetes API server
+      - job_name: 'kubernetes-apiserver'
+        kubernetes_sd_configs:
+          - role: endpoints
+        scheme: https
+        # tlsConfig:
+        #   caFile: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        #   insecureSkipVerify: true
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+            action: keep
+            regex: default;kubernetes;https
+
+      # Scrape the Kubelet
+      - job_name: 'kubernetes-nodes'
+        scheme: https
+        # tlsConfig:
+        #   caFile: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        #   insecureSkipVerify: true
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        kubernetes_sd_configs:
+          - role: node
+        relabel_configs:
+          - action: labelmap
+            regex: __meta_kubernetes_node_label_(.+)
+
+      # Add more jobs as needed for other Kubernetes components
+
+    selfMonitor: true
+
+##-grafana-##    
+grafana:
+  enabled: true
+  namespaceOverride: ""
+  forceDeployDatasources: true
+  forceDeployDashboards: true
+  defaultDashboardsEnabled: true
+  defaultDashboardsTimezone: utc
+  adminPassword: grafanaman
+  rbac:
+    pspEnabled: false
+  ingress:
+    enabled: false
+    annotations: {}
+    labels: {}
+    hosts: []
+    path: /
+    tls: []
+
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard  # Ensure this matches the label in your ConfigMaps
+      labelValue: "1"
+      # Allow discovery in all namespaces for dashboards
+      searchNamespace: ALL
+      annotations: {}
+      multicluster:
+        global:
+          enabled: false
+        etcd:
+          enabled: false
+      provider:
+        allowUiUpdates: false
+    datasources:
+      enabled: true
+      defaultDatasourceEnabled: true
+      isDefaultDatasource: true
+      uid: prometheus
+      orgId: 1
+      annotations: {}
+      httpMethod: POST
+      createPrometheusReplicasDatasources: false
+      label: grafana_datasource
+      labelValue: "1"
+      exemplarTraceIdDestinations: {}
+  extraConfigmapMounts: []
+  deleteDatasources: []
+  additionalDataSources: 
+    - name: Loki
+      type: loki
+      url: http://loki-gateway.prometheus
+      access: proxy
+      label: grafana_datasource
+      labelValue: "2"
+      orgId: 1
+  service:
+    portName: web
+
+  serviceMonitor:
+    enabled: true
+    path: "/metrics"
+    labels: {}
+    interval: ""
+    scheme: http
+    tlsConfig: {}
+    scrapeTimeout: 30s
+    relabelings: []
+
+##-alertmanager-##
 alertmanager:
+  enabled: true
+  annotations: {}
+  apiVersion: v2
+  serviceAccount:
+    create: true
+    name: ""
+    annotations: {}
+    automountServiceAccountToken: true
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: 1
+    maxUnavailable: ""
+  config:
+    global:
+      resolve_timeout: 5m
+    inhibit_rules:
+      - source_matchers:
+          - 'severity = critical'
+        target_matchers:
+          - 'severity =~ warning|info'
+        equal:
+          - 'namespace'
+          - 'alertname'
+      - source_matchers:
+          - 'severity = warning'
+        target_matchers:
+          - 'severity = info'
+        equal:
+          - 'namespace'
+          - 'alertname'
+      - source_matchers:
+          - 'alertname = InfoInhibitor'
+        target_matchers:
+          - 'severity = info'
+        equal:
+          - 'namespace'
+    route:
+      group_by: ['namespace']
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 12h
+      receiver: 'null'
+      routes:
+      - receiver: 'null'
+        matchers:
+          - alertname =~ "InfoInhibitor|Watchdog"
+    receivers:
+    - name: 'null'
+    templates:
+    - '/etc/alertmanager/config/*.tmpl'
+  stringConfig: ""
+  tplConfig: false
+  templateFiles: {}
+  ingress:
+    enabled: false
+    annotations: {}
+    labels: {}
+    hosts: []
+    paths: []
+    # - /
+    tls: []
+  secret:
+    annotations: {}
+  ingressPerReplica:
+    enabled: false
+    annotations: {}
+    labels: {}
+    hostPrefix: ""
+    hostDomain: ""
+    paths: []
+    # - /
+    tlsSecretName: ""
+    tlsSecretPerReplica:
+      enabled: false
+      prefix: "alertmanager"
+
+  service:
+    annotations: {}
+    labels: {}
+    clusterIP: ""
+    port: 9093
+    targetPort: 9093
+    nodePort: 30903
+    additionalPorts: []
+    externalIPs: []
+    loadBalancerIP: ""
+    loadBalancerSourceRanges: []
+    externalTrafficPolicy: Cluster
+    sessionAffinity: ""
+    type: ClusterIP
+
+  servicePerReplica:
+    enabled: false
+
+  serviceMonitor:
+    interval: ""
+    selfMonitor: true
+    additionalLabels: {}
+    sampleLimit: 0
+    targetLimit: 0
+    labelLimit: 0
+    labelNameLengthLimit: 0
+    labelValueLengthLimit: 0
+    proxyUrl: ""
+    scheme: ""
+    enableHttp2: true
+    tlsConfig: {}
+    bearerTokenFile:
+    metricRelabelings: []
+    relabelings: []
+
   alertmanagerSpec:
+    secrets:
+      - smtp-secret  # secret to be mounted as volume (alertmanager is not able to fetch password directly from kubernetes secret)
+
     config:
       global:
-        smtp_smarthost: 'smtp.sendgrid.net:587'  # Replace with your SMTP host
-        smtp_from: 'mats.tumblebuns@gmail.com'      # Replace with your email
-        smtp_auth_username: 'apikey'      # SMTP username
-        smtp_auth_password: '{{ .Values.smtp_secret | b64enc }}'     # SMTP password
+        smtp_smarthost: 'smtp.sendgrid.net:587'    # SendGrid SMTP host
+        smtp_from: 'mats.tumblebuns@gmail.com'      # Your email address
+        smtp_auth_username: 'apikey'                # SendGrid username (usually 'apikey')
+        smtp_auth_password: '/etc/alertmanager/smtp-secret/smtp_password' # Path to mounted secret
+
       route:
         group_by: ['alertname']
         receiver: 'email'
+
       receivers:
         - name: 'email'
           email_configs:
-            - to: 'mats.tumblebuns@gmail.com'
-
-# Custom alerting rules
-additionalPrometheusRules:
-  - name: node-alerts
-    groups:
-      - name: node.rules
-        rules:
-          - alert: HighMemoryUsage
-            expr: node_memory_Active_bytes / node_memory_MemTotal_bytes > 0.8
-            for: 5m
-            labels:
-              severity: warning
-            annotations:
-              summary: High Memory Usage on Node
-              description: "Node memory usage is over 80% for more than 5 minutes."
-
-          - alert: HighCpuUsage
-            expr: 100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
-            for: 5m
-            labels:
-              severity: warning
-            annotations:
-              summary: High CPU Usage on Node
-              description: "CPU usage is over 90% for more than 5 minutes."
-
-          - alert: HighStorageUsage
-            expr: (node_filesystem_avail_bytes{mountpoint="/"}/node_filesystem_size_bytes{mountpoint="/"})*100 < 20
-            for: 5m
-            labels:
-              severity: warning
-            annotations:
-              summary: High Storage Usage
-              description: "Less than 20% disk space available on the root filesystem for more than 5 minutes."
-
-# Prometheus storage settings (example)
-prometheus:
-  prometheusSpec:
-    storageSpec:
-      volumeClaimTemplate:
-        spec:
-          storageClassName: standard
-          accessModes: ["ReadWriteOnce"]
-          resources:
-            requests:
-              storage: 120Gi
+            - to: 'mats.tumblebuns@gmail.com'      # Destination email address
+              send_resolved: true                  # Notify when alerts resolve
+  
+    podMetadata: {}
+    image:
+      registry: quay.io
+      repository: prometheus/alertmanager
+      tag: v0.25.0
+      sha: ""
+    useExistingSecret: false
+    secrets: []
+    configMaps: []
+    web: {}
+    alertmanagerConfigSelector: {}
+    alertmanagerConfigNamespaceSelector: {}
+    alertmanagerConfiguration: {}
+    alertmanagerConfigMatcherStrategy: {}
+    logFormat: logfmt
+    logLevel: info
+    replicas: 1
+    retention: 120h
+    storage: {}
+    externalUrl:
+    routePrefix: /
+    scheme: ""
+    tlsConfig: {}
+    paused: false
+    nodeSelector: {}
+    resources: 
+      requests:
+        memory: 400Mi
+    podAntiAffinity: ""
+    podAntiAffinityTopologyKey: kubernetes.io/hostname
+    affinity: {}
+    tolerations: []
+    topologySpreadConstraints: []
+    
+    securityContext:
+      runAsGroup: 2000
+      runAsNonRoot: true
+      runAsUser: 1000
+      fsGroup: 2000
+      seccompProfile:
+        type: RuntimeDefault
+    listenLocal: false
+    containers: []
+    volumes: []
+    volumeMounts: []
+    initContainers: []
+    priorityClassName: ""
+    additionalPeers: []
+    portName: "web"
+    clusterAdvertiseAddress: false
+    clusterGossipInterval: ""
+    clusterPeerTimeout: ""
+    clusterPushpullInterval: ""
+    forceEnableClusterMode: false
+    minReadySeconds: 0
+  extraSecret:
+    annotations: {}
+    data: {}

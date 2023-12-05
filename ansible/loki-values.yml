@@ -1,0 +1,52 @@
+loki:
+  commonConfig:
+    replication_factor: 3
+  storage:
+    type: 's3'
+    s3:
+      endpoint: 'https://slackfastapi-backend.s3.amazonaws.com'
+      region: ap-southeast-1
+      bucketNames:
+        chunks: loki-chunks
+        ruler: loki-ruler
+        admin: loki-admin
+      accessKeyId: ${AWS_ACCESS_KEY_ID}  # Referencing environment variables
+      secretAccessKey: ${AWS_SECRET_ACCESS_KEY}
+      s3ForcePathStyle: false
+      insecure: false
+  singleBinary:
+    replicas: 3
+  auth_enabled: false
+  # tls_config:
+  #   insecure_skip_verify: true
+
+  test:
+    enabled: false
+
+  monitoring:
+    selfMonitoring:
+      enabled: false
+      grafanaAgent:
+        installOperator: false
+      lokiCanary:
+        enabled: false
+
+  # # not needed when using s3
+  # persistence:
+  #   enabled: true
+  #   accessModes:
+  #     - ReadWriteOnce
+  #   size: 20Gi
+  #   storageClassName: yc-network-hdd
+
+extraEnv:
+  - name: AWS_SECRET_ACCESS_KEY
+    valueFrom:
+      secretKeyRef:
+        name: aws-credentials
+        key: aws_secret_access_key
+  - name: AWS_ACCESS_KEY_ID
+    valueFrom:
+      secretKeyRef:
+        name: aws-credentials
+        key: aws_access_key_id

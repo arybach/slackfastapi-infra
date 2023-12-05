@@ -4,17 +4,30 @@
   vars:
     ns: prometheus
     release_name: "kube-prom-stack"
-    chart_version: "54.2.0"
+    chart_version: "54.2.2"
     grafana_dashboards_path: "/media/groot/projects/slackfastapi/ansible/dashboards/"
-    custom_values_path: "/media/groot/projects/slackfastapi/ansible/prometheus-values.yml"
   tasks:
     # to clean before re-applying:
     # helm delete kube-prom-stack --namespace prometheus
     # helm delete loki --namespace prometheus
 
-    # - name: Ensure the namespace exists
-    #   command: kubectl create namespace {{ ns }}
-    #   ignore_errors: yes  
+    - name: Ensure the namespace exists
+      command: kubectl create namespace {{ ns }}
+      ignore_errors: yes  
+
+    # make sure SEND_GRID_SMTP_TOKEN is exported
+    - name: Create SMTP secret for Prometheus
+      command: >
+        kubectl create secret generic smtp-secret
+        --from-literal=smtp_password={{ lookup('env', 'SEND_GRID_SMTP_TOKEN') }}
+        -n prometheus
+
+    - name: Create AWS creds secrets
+      command: >
+        kubectl create secret generic aws-credentials \
+          --from-literal=aws_secret_access_key={{ lookup('env', 'AWS_SECRET_ACCESS_KEY') }} \
+          --from-literal=aws_access_key_id={{ lookup('env', 'AWS_ACCESS_KEY_ID') }} \
+          -n prometheus
 
     - name: Add Helm Repos
       command: "{{ item.cmd }}"
@@ -27,33 +40,62 @@
       command: helm repo update
       ignore_errors: yes
 
-    - name: Install Kube-Prometheus-Stack with Configured Grafana
+    - name: Create Prometheus RBAC Role
+      command: kubectl apply -f prometheus-rbac.yml
+      ignore_errors: yes
+      
+    - name: Create and Label ConfigMaps for Grafana Dashboards
+      shell: |
+        kubectl create configmap {{ item.key }} \
+        --from-file={{ item.value }} \
+        --namespace {{ ns }} \
+        --dry-run=client -o yaml | \
+        kubectl label --local -f - grafana_dashboard=1 -o yaml | \
+        kubectl apply -f -
+      with_dict:
+        fastapi-dashboard: "{{ grafana_dashboards_path }}/fastapi-dashboard.json"
+        kubernetes-dashboard: "{{ grafana_dashboards_path }}/kubernetes-dashboard.json"
+        loki-dashboard: "{{ grafana_dashboards_path }}/loki-dashboard.json"
+        postgres-dashboard: "{{ grafana_dashboards_path }}/postgres-dashboard.json"
+        rabbitmq-dashboard: "{{ grafana_dashboards_path }}/rabbitmq-dashboard.json"
+      ignore_errors: yes
+
+    - name: Install Kube-Prometheus-Stack with Grafana
       command: >
         helm install {{ release_name }} prometheus-community/kube-prometheus-stack
         --version {{ chart_version }}
         --namespace {{ ns }}
         --set grafana.sidecar.dashboards.enabled=true
         --set grafana.sidecar.dashboards.label=grafana_dashboard
-        --set grafana.plugins[0]=grafana-singlestat-panel
-        --set grafana.plugins[1]=grafana-graph-panel
-        --set grafana.plugins[2]=grafana-bargauge-panel
-        --set grafana.plugins[3]=grafana-logs-panel
-        --set grafana.plugins[4]=grafana-stat-panel
-        --set grafana.plugins[5]=grafana-timeseries-panel
-        -f {{ custom_values_path }}
+        --set grafana.adminPassword='grafanaman'
+        --set ruleSelectorNilUsesHelmValues=false
+        --set serviceMonitorSelectorNilUsesHelmValues=false
+        --set podMonitorSelectorNilUsesHelmValues=false
+        --set probeSelectorNilUsesHelmValues=false
+        --set scrapeConfigSelectorNilUsesHelmValues=false
+        -f prometheus-values.yml
+        --timeout 10m
       ignore_errors: yes
 
     - name: Install Loki for Logging
       command: >
         helm install loki grafana/loki
         --namespace {{ ns }}
+        --values loki-values.yml \
+        --timeout 5m
       ignore_errors: yes
 
-    - name: Create ConfigMaps for Grafana Dashboards
-      shell: kubectl create configmap {{ item.key }} --from-file={{ item.value }} --namespace {{ ns }} --dry-run=client -o yaml | kubectl apply -f -
-      with_dict:
-        fastapi-dashboard: "{{ grafana_dashboards_path }}/fastapi.json"
-        kubernetes-dashboard: "{{ grafana_dashboards_path }}/kubernetes.json"
-        postgres-dashboard: "{{ grafana_dashboards_path }}/postgres.json"
-        rabbitmq-dashboard: "{{ grafana_dashboards_path }}/rabbitmq.json"
-      ignore_errors: yes
+    - name: Patch Grafana service to NodePort
+      command: >
+        kubectl patch svc kube-prom-stack-grafana -n prometheus -p "{\"spec\": {\"type\": \"NodePort\"}}"
+
+    - name: Install Promtail
+      command: helm upgrade --install promtail grafana/promtail --namespace {{ ns }} -f promtail-values.yml
+
+    - name: Apply monitoring
+      # for DO
+      # command: kubectl apply -f ../slackfastapi-master/deploy/monitoring-do.yml --timeout 5m
+      # for YC
+      command: kubectl apply -f ../slackfastapi-master/deploy/monitoring-yc.yml --timeout 5m
+
+

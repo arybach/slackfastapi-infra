@@ -5,5 +5,5 @@ folder_id                = "b1gjev1g87fgira75vkt" # infra folder
 image_id                 = "fd80bm0rh4rkepi5ksdi" # ubuntu 22.04
 zone                     = "ru-central1-a"
 yc_token                 = "y0_XxAAAAATuwQAAAADABu28nimTXb_9AAAAAAA0XxXxXtzeE"
-k8s                      = "1.27"
-ssh_public_key_file     = "/home/groot/.ssh/yc.pub"
+k8s_version              = "1.27"
+ssh_public_key_file      = "/home/groot/.ssh/yc.pub"
